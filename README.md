@@ -15,6 +15,9 @@ I noticed on the day of the deadline that someone had updated the test cases in 
 Other issues: 
 I also know that even if I had implemented the third feature properly - my program is very memory inefficient. I copy my HashMaps to arrays and then use MergeSort (which makes a temporary copy of the arrays, again). If I were to do this over again I would A) Consistently check the repository for updates (and read the prompt more closely - that's on me for not understanding what ANY 60 minute long period means) and B) I would use QuickSort to sort the arrays, more specifically Quick Select, because I don't actually need to sort the whole array, I just need to find the top N elements for features 1,2, and 3. This would give me O(n) selection of the top X elements and I would avoid the shadow copy used in Merge Sort. Quick Select is implemented by setting a pivot in the center (not randomly) of the array and recursively swapping elements on right and left that are greater or less than the pivot value until the pivot is placed X away from the end of the array. Then we have the top X elements. 
 
+The code in AnalyticsUtility is also a bit repetitive. I would have liked to make the Host, Resource, and Interval all extend from a base class with an id and count instance variable. Doing so would allow me to only write a basic function that sorts something of the base type and writes it to a log that gets specified. This would have made the utility much more extendable.
+
+Other features (wishlist):
 If the submission day had not been spent scrambling - here is what I had planned on adding: 
 1) A list of hosts with the most blocked attempts - they might need to be dealt with differently or monitored more closely by the system. It would also be interesting to see what resources they are accessing or what type of requests they are putting in. I might check to see if they submitting strange web requests, checking for things like a CRLF attack or XSS in the request. 
 
@@ -23,5 +26,4 @@ If the submission day had not been spent scrambling - here is what I had planned
 3) The ability to change the value of the number of items returned in features 1,2,3, as well as the number of attempts before logging an IP's request (feature 4). I wanted to have a configuration file that gets read when the application starts so the user can specify how much data should be written to each of the logs. 
 
 4) The ability to change feature 3 to only show the top X NON-OVERLAPPING intervals. I noticed that the output (this was based on what I thought was the correct implementation) included all 60 minute intervals on July 13th around the same time. In a real world scenario, while having all possible intervals might be useful for more complex analytics - a user would probably be more interested in the busiest time of each day or the top ten busiest hours that don't overlap, or the top ten busiest days that don't overlap. The plan was to give the user power through configuration to change what goes into the hours.txt log file. They could change to "minutes", "hours", or "days" to get the top 10 of each that do not overlap with each other. 
-
 
