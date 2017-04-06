@@ -5,6 +5,14 @@ import java.util.LinkedList;
 import java.util.Arrays;
 import java.util.Comparator;
 
+import java.util.ArrayList;
+import java.util.Date;
+
+import java.time.format.DateTimeFormatter;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+
 
 
 public class AnalyticsUtility {
@@ -17,11 +25,10 @@ public class AnalyticsUtility {
 	private HashMap<String,Resource> resourceMap;
 	private Resource[] resources;
 
-	// Feature 3 Structures 
-	private LinkedList<LogData> intervalQueue;
-	private HashSet<Interval> intervalSet;
+	private LinkedList<Second> seconds;
+	private LinkedList<Interval> intervalQueue;
 	private Interval[] intervals;
-	private Interval lastInterval; // the last interval added to the interval set 
+
 
 	// Feature 4 - No Structures Necessary 
 	SecurityUtility sec;
@@ -33,8 +40,7 @@ public class AnalyticsUtility {
 		// Initialize data structures 
 		this.hostMap = new HashMap<String,Host>();
 		this.resourceMap = new HashMap<String,Resource>();
-		this.intervalQueue = new LinkedList<LogData>();
-		this.intervalSet = new HashSet<Interval>();
+		this.seconds = new LinkedList<Second>();
 
 		// Initialize security utility 
 		this.sec = new SecurityUtility("../log_output/blocked.txt");
@@ -44,7 +50,7 @@ public class AnalyticsUtility {
 	public void update(LogData d) {
 		Host h = updateHosts(d.getHostName()); // Feature 1
 		if (d.getResource() != null) updateResources(d.getResource(), d.getBytesReturned()); // Feature 2
-		updateIntervals(d); // Feature 3
+		updateSeconds(d);
 		sec.update(d,h); // Feature 4
 	}
 
@@ -57,12 +63,11 @@ public class AnalyticsUtility {
 
 	// prepares data by  
 	private void prepare() {
-		emptyIntervalQueue();
 
+		createIntervalArray();
 		// Convert dynamic structures to static arrays for sorting
 		hosts = hostMap.values().toArray(new Host[hostMap.size()]);
 		resources = resourceMap.values().toArray(new Resource[resourceMap.size()]);
-		intervals = intervalSet.toArray(new Interval[intervalSet.size()]);
 
 		// MergeSort - O(nlgn)
 		Arrays.sort(hosts, Host.getComparator());
@@ -74,7 +79,7 @@ public class AnalyticsUtility {
 	public void write() {
 		writeHosts();
 		writeResources();
-		writeIntervals();
+		writeHours();
 	}
 
 	/**
@@ -133,58 +138,94 @@ public class AnalyticsUtility {
 		w.close();
 	}
 
-	/**
-	  * Feature 3 - Uses a queue that is consistently filled with 60 minutes worth of 
-	  * LogData. When a new piece of data is added - the queue updates by removing 
-	  * any data that was logged more than 60 minutes prior to the latest addition.
-	  *
-	  * When removing the data, an Interval is created that holds the timestamp that 
-	  * starts a 60 minute interval and the size of the queue at the beginning of 
-	  * the interval. This Interval is added to a Set of Intervals 
-	  */
-	private void updateIntervals(LogData d) {
-		int intervalSize = intervalQueue.size(); // get the size of the queue before adding new data 
-		intervalQueue.add(d);
 
-		// if the latest log data is more than 60 minutes later than the first element 
-		// in the queue, update the lastInterval variable and add it to the set 
-		// keep removing until the queue only contains a 60 minute span of log data
-		if(d.getTime() - intervalQueue.peek().getTime() > 3600000) {
-			lastInterval = new Interval(intervalQueue.peek().getTimeString(),intervalSize);
-			intervalSet.add(lastInterval);
-			while(!intervalQueue.isEmpty() && (d.getTime() - intervalQueue.peek().getTime() > 3600000)) {
-				intervalQueue.remove();
-			}
-		}
-	}
-
-	/**
-	  * Feature 3 - Writes to the hours log the specified number of 
-	  * the busiest 60 minute intervals 
-	  */
-	private void writeIntervals() {
+	private void writeHours() {
 		LogWriter w = new LogWriter("../log_output/hours.txt");
 		int threshold = intervals.length < 10 ? intervals.length : 10;
-		for(int i = 0; i < threshold; i++) {
+		for(int i = 0; i < threshold - 1; i++) {
 			Interval in = intervals[i];
 			w.write(String.format("%s,%d%n",in.getStart(),in.getHits()));
 		}
 
+
+		Interval in = intervals[threshold-1];
+		w.write(String.format("%s,%d",in.getStart(),in.getHits()));
 		w.close();
 	}
 
-	/**
-	  * Feature 3 - Helper method that adds any intervals left in the intervalQueue
-	  * to the interval set
-	  */
-	private void emptyIntervalQueue() {
-		while(!intervalQueue.isEmpty()) {
-			int intervalSize = intervalQueue.size();
-			LogData ld = intervalQueue.remove();
-			if(lastInterval == null || !ld.getTimeString().equals(lastInterval.getStart())) {
-				lastInterval = new Interval(ld.getTimeString(),intervalSize);
-				intervalSet.add(lastInterval);
-			}
+
+
+	private void updateSeconds(LogData d) {
+		if(seconds.isEmpty()) {
+			seconds.add(new Second(d.getTimeString(),d.getTime()));
+			seconds.getLast().increment();
+			return;
 		}
+
+		// if the time is equal to the last element in the list 
+		if(d.getTime() == seconds.getLast().getMillis()) {
+			seconds.getLast().increment();
+			return;
+		}
+
+		// if the time is greater than the last element in the list 
+		long time = seconds.getLast().getMillis() + 1000;
+		while(d.getTime() >= time) {
+			ZonedDateTime utc = Instant.ofEpochMilli(time).atZone(ZoneOffset.ofHoursMinutes(-4,0));
+			seconds.add(new Second(DateTimeFormatter.ofPattern("dd/MMM/yyyy:HH:mm:ss Z").format(utc),time));
+			time += 1000;
+		}
+
+		seconds.getLast().increment();
 	}
+
+
+	private void createIntervalArray() {
+		intervals = new Interval[seconds.size()];
+
+		// if there is only one full hour interval 
+		int threshold = intervals.length <= 3600 ? intervals.length : 3600;
+		int sum = 0;
+
+		for(int i = 0; i < threshold; i++) {
+			sum += seconds.get(i).getCount();
+		}
+
+		int lo = 0;
+		int hi;
+		for(hi = threshold; hi < intervals.length; hi++) {
+			Second s = seconds.get(lo);
+			intervals[lo] = new Interval(s.getTS(),s.getMillis(),sum);
+			sum -= s.getCount();
+			sum += seconds.get(hi).getCount(); 
+			lo++; 
+
+		}
+
+		while(lo < hi) {
+			Second s = seconds.get(lo);
+			intervals[lo] = new Interval(s.getTS(),s.getMillis(),sum);
+			sum -= s.getCount();
+			lo++;
+		}
+
+	}
+
+	// private void newThink(LogData d) {
+	// 	if(intervalQueue.isEmpty()) {
+	// 		intervalQueue.add(d);
+	// 		return;
+	// 	}
+
+	// 	// if the queue is not empty...
+
+	// 	if(d.getTime() - )
+
+	// }
+
+
+
 }
+
+
+

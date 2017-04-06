@@ -8,7 +8,7 @@ import java.util.Date;
 // 
 public class DataParser {
 
-	private static final String LOG_DATA_REGEX = "(?<h>[^\\s]+)[^\\w]+\\[(?<ts>.+?)\\][ ]+[\\S](?<r>.+?)[\\S][ ]+(?<s>[0-9]{3})[^\\w]+(?<b>[0-9]+|\\-)";
+	private static final String LOG_DATA_REGEX = "(?<h>[^\\s]+)[^\\w]+\\[(?<ts>.+?)\\][^\\w]+\"(?<r>.+?)\"[^\\w]+(?<s>[0-9]{3})[^\\w]+(?<b>[0-9]+|\\-)";
 	private static final String REQUEST_REGEX = "(?<requestURL>/[\\S]*)";
 	private static final Pattern inputPattern = Pattern.compile(LOG_DATA_REGEX);
 	private static final Pattern requestURLPattern = Pattern.compile(REQUEST_REGEX);
