@@ -25,14 +25,12 @@ public class AnalyticsUtility {
 	private HashMap<String,Resource> resourceMap;
 	private Resource[] resources;
 
+	// Feature 3 Structures 
 	private LinkedList<Second> seconds;
-	private LinkedList<Interval> intervalQueue;
 	private Interval[] intervals;
 
-
-	// Feature 4 - No Structures Necessary 
+	// Feature 4 - Contained in separate class 
 	SecurityUtility sec;
-	// See Host.java and updateBlockedAttempts for details 
 
 	// Constructor
 	public AnalyticsUtility() {
@@ -183,7 +181,7 @@ public class AnalyticsUtility {
 	private void createIntervalArray() {
 		intervals = new Interval[seconds.size()];
 
-		// if there is only one full hour interval 
+		// if there is only one interval 
 		int threshold = intervals.length <= 3600 ? intervals.length : 3600;
 		int sum = 0;
 
@@ -210,20 +208,6 @@ public class AnalyticsUtility {
 		}
 
 	}
-
-	// private void newThink(LogData d) {
-	// 	if(intervalQueue.isEmpty()) {
-	// 		intervalQueue.add(d);
-	// 		return;
-	// 	}
-
-	// 	// if the queue is not empty...
-
-	// 	if(d.getTime() - )
-
-	// }
-
-
 
 }
 
